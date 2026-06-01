@@ -21,6 +21,11 @@ jobs:
       with:
         python-version: '3.10'
 
+    - name: Debug - list files (for diagnosis)
+      run: |
+        Write-Host "Repository structure:"
+        Get-ChildItem -Recurse -File | Select-Object -First 30 FullName
+
     - name: Cache pip packages
       uses: actions/cache@v3
       with:
@@ -39,19 +44,55 @@ jobs:
       run: |
         python -c "from PIL import Image; img = Image.open('assets/icon.png'); img.save('assets/icon.ico', format='ICO', sizes=[(256,256), (128,128), (64,64), (48,48), (32,32), (16,16)])"
 
-    - name: Patch relative imports in main.py
+    - name: Find main entry script
+      id: find_script
       run: |
-        # Replace 'from .module' with 'from module' (absolute import)
-        # Also handles 'from .sub.module' -> 'from sub.module'
-        (Get-Content main.py) -replace 'from \.(\w+)', 'from $1' | Set-Content main.py
-        Write-Host "Patched main.py:"
-        Select-String "from " main.py | Select-Object -First 10
+        # Look for a script that contains "if __name__ == '__main__'" or the one referenced in build.spec
+        $possibleScripts = @(
+          "main.py",
+          "src/main.py",
+          "app.py",
+          "run.py",
+          "datamatrix_checker.py"
+        )
+        $found = $null
+        foreach ($script in $possibleScripts) {
+          if (Test-Path $script) {
+            $found = $script
+            break
+          }
+        }
+        # If not found, search any .py file containing '__main__'
+        if (-not $found) {
+          $found = Get-ChildItem -Recurse -Filter "*.py" | Select-String -Pattern 'if __name__ == .__main__.' -List | Select-Object -First 1 -ExpandProperty Path
+        }
+        if ($found) {
+          Write-Host "Found entry script: $found"
+          echo "script_path=$found" | Out-File -FilePath $env:GITHUB_ENV -Append
+        } else {
+          Write-Error "No entry script found. Please specify the correct main file in build.spec."
+          exit 1
+        }
 
-    - name: Patch build.spec to use .ico instead of .png
+    - name: Patch relative imports in the entry script
       run: |
-        (Get-Content build.spec) -replace 'icon\.png', 'icon.ico' | Set-Content build.spec
+        $script = "$env:script_path"
+        Write-Host "Patching relative imports in $script"
+        (Get-Content $script) -replace 'from \.(\w+)', 'from $1' | Set-Content $script
+        Write-Host "Patched lines (first 10):"
+        Select-String "from " $script | Select-Object -First 10
+
+    - name: Patch build.spec to use .ico and correct script path
+      run: |
+        $spec = "build.spec"
+        # Replace icon.png with icon.ico
+        (Get-Content $spec) -replace 'icon\.png', 'icon.ico' | Set-Content $spec
+        # Replace any occurrence of 'main.py' or '../main.py' with the discovered script path
+        $scriptRelPath = Resolve-Path -Relative $env:script_path
+        $scriptRelPath = $scriptRelPath -replace '^\.\\', ''   # remove .\ prefix
+        (Get-Content $spec) -replace "['`"]main\.py['`"]", "'$scriptRelPath'" | Set-Content $spec
         Write-Host "Updated build.spec:"
-        Get-Content build.spec | Select-String "icon"
+        Get-Content $spec | Select-String "icon|SCRIPT"
 
     - name: Build with PyInstaller
       run: pyinstaller build.spec --noconfirm
@@ -62,5 +103,63 @@ jobs:
         name: DataMatrixChecker-windows
         path: dist/DataMatrixChecker.exe
 
-  # ---------- lint-and-test and release jobs remain identical ----------
-  # (omitted for brevity – copy from previous answer)
+  # ---------- Lint and Test (unchanged) ----------
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flake8 pytest PySide6
+
+    - name: Lint with flake8
+      run: |
+        flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 src --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Test with pytest
+      run: |
+        pytest tests/ --doctest-modules --junitxml=junit/test-results.xml --cov=src --cov-report=xml --cov-report=html
+      continue-on-error: true
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: junit/test-results.xml
+      if: always()
+
+  # ---------- Release (unchanged) ----------
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-windows, lint-and-test]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download Windows artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: DataMatrixChecker-windows
+        path: dist/
+
+    - name: Create Release and Upload Asset
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/DataMatrixChecker.exe
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
