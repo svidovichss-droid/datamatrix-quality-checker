@@ -39,6 +39,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pyinstaller pillow PySide6
+        # Explicitly install opencv-python (cv2)
+        pip install opencv-python
 
     - name: Convert PNG icon to ICO
       run: |
@@ -61,7 +63,6 @@ jobs:
         if ($found) {
           Write-Host "Found entry script: $found"
           echo "script_path=$found" | Out-File -FilePath $env:GITHUB_ENV -Append
-          # Also set the directory of the script for later use
           $scriptDir = Split-Path $found -Parent
           echo "script_dir=$scriptDir" | Out-File -FilePath $env:GITHUB_ENV -Append
         } else {
@@ -77,11 +78,9 @@ jobs:
         Write-Host "Patched lines:"
         Select-String "from " $script | Select-Object -First 10
 
-    - name: Build with PyInstaller (command line, no .spec file)
+    - name: Build with PyInstaller
       run: |
-        # Use the discovered main script
         $mainScript = "$env:script_path"
-        # Create a temporary spec file that includes all necessary paths and hidden imports
         pyinstaller --onefile `
                     --windowed `
                     --icon=assets/icon.ico `
@@ -90,6 +89,8 @@ jobs:
                     --paths "$env:script_dir" `
                     --hidden-import "app" `
                     --collect-all "app" `
+                    --hidden-import "cv2" `
+                    --collect-all "cv2" `
                     --name "DataMatrixChecker" `
                     $mainScript
 
@@ -99,7 +100,7 @@ jobs:
         name: DataMatrixChecker-windows
         path: dist/DataMatrixChecker.exe
 
-  # ---------- Lint and Test (unchanged) ----------
+  # ---------- Lint and Test ----------
   lint-and-test:
     name: Lint and Test
     runs-on: ubuntu-latest
@@ -117,7 +118,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install flake8 pytest PySide6
+        pip install flake8 pytest PySide6 opencv-python
 
     - name: Lint with flake8
       run: |
@@ -136,7 +137,7 @@ jobs:
         path: junit/test-results.xml
       if: always()
 
-  # ---------- Release (unchanged) ----------
+  # ---------- Release ----------
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
