@@ -5,10 +5,9 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:   # Allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
-  # ---------- Job 1: Windows Build ----------
   build-windows:
     name: Build Windows .exe
     runs-on: windows-latest
@@ -34,10 +33,14 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pyinstaller
+        pip install pyinstaller pillow   # pillow needed for PNG→ICO conversion
 
-    - name: Build with PyInstaller
-      run: pyinstaller build.spec --noconfirm
+    - name: Convert PNG icon to ICO (Windows requirement)
+      run: |
+        python -c "from PIL import Image; img = Image.open('assets/icon.png'); img.save('assets/icon.ico', format='ICO', sizes=[(256,256), (128,128), (64,64), (48,48), (32,32), (16,16)])"
+
+    - name: Build with PyInstaller (override icon to use .ico)
+      run: pyinstaller build.spec --icon=assets/icon.ico --noconfirm
 
     - name: Upload executable artifact
       uses: actions/upload-artifact@v4
@@ -45,7 +48,6 @@ jobs:
         name: DataMatrixChecker-windows
         path: dist/DataMatrixChecker.exe
 
-  # ---------- Job 2: Lint & Test (optional) ----------
   lint-and-test:
     name: Lint and Test
     runs-on: ubuntu-latest
@@ -63,7 +65,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install flake8 pytest   # if you have tests
+        pip install flake8 pytest
 
     - name: Lint with flake8
       run: |
@@ -73,16 +75,15 @@ jobs:
     - name: Test with pytest (if tests exist)
       run: |
         pytest tests/ --doctest-modules --junitxml=junit/test-results.xml --cov=src --cov-report=xml --cov-report=html
-      continue-on-error: true   # Don't fail the whole run if no tests yet
+      continue-on-error: true
 
-    - name: Upload test results (optional)
+    - name: Upload test results
       uses: actions/upload-artifact@v4
       with:
         name: test-results
         path: junit/test-results.xml
       if: always()
 
-  # ---------- Job 3: Release ----------
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
