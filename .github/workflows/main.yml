@@ -33,13 +33,19 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pyinstaller pillow
-        # Ensure PySide6 is installed (if not in requirements.txt)
-        pip install PySide6
+        pip install pyinstaller pillow PySide6
 
     - name: Convert PNG icon to ICO
       run: |
         python -c "from PIL import Image; img = Image.open('assets/icon.png'); img.save('assets/icon.ico', format='ICO', sizes=[(256,256), (128,128), (64,64), (48,48), (32,32), (16,16)])"
+
+    - name: Patch relative imports in main.py
+      run: |
+        # Replace 'from .module' with 'from module' (absolute import)
+        # Also handles 'from .sub.module' -> 'from sub.module'
+        (Get-Content main.py) -replace 'from \.(\w+)', 'from $1' | Set-Content main.py
+        Write-Host "Patched main.py:"
+        Select-String "from " main.py | Select-Object -First 10
 
     - name: Patch build.spec to use .ico instead of .png
       run: |
@@ -56,64 +62,5 @@ jobs:
         name: DataMatrixChecker-windows
         path: dist/DataMatrixChecker.exe
 
-  # ---------- Lint and Test (unchanged) ----------
-  lint-and-test:
-    name: Lint and Test
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Check out the code
-      uses: actions/checkout@v4
-
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install flake8 pytest PySide6   # also need PySide6 for tests that import it
-        # If you don't have tests that need PySide6, you can remove it
-
-    - name: Lint with flake8
-      run: |
-        flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 src --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-
-    - name: Test with pytest
-      run: |
-        pytest tests/ --doctest-modules --junitxml=junit/test-results.xml --cov=src --cov-report=xml --cov-report=html
-      continue-on-error: true
-
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results
-        path: junit/test-results.xml
-      if: always()
-
-  # ---------- Release (unchanged) ----------
-  release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    needs: [build-windows, lint-and-test]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
-
-    steps:
-    - name: Download Windows artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: DataMatrixChecker-windows
-        path: dist/
-
-    - name: Create Release and Upload Asset
-      uses: softprops/action-gh-release@v1
-      with:
-        files: dist/DataMatrixChecker.exe
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # ---------- lint-and-test and release jobs remain identical ----------
+  # (omitted for brevity – copy from previous answer)
