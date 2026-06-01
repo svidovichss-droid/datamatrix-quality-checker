@@ -34,19 +34,20 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pyinstaller pillow
+        # Ensure PySide6 is installed (if not in requirements.txt)
+        pip install PySide6
 
-    - name: Convert PNG icon to ICO (Windows requirement)
+    - name: Convert PNG icon to ICO
       run: |
         python -c "from PIL import Image; img = Image.open('assets/icon.png'); img.save('assets/icon.ico', format='ICO', sizes=[(256,256), (128,128), (64,64), (48,48), (32,32), (16,16)])"
 
     - name: Patch build.spec to use .ico instead of .png
       run: |
-        # Replace 'icon.png' with 'icon.ico' in the spec file
         (Get-Content build.spec) -replace 'icon\.png', 'icon.ico' | Set-Content build.spec
         Write-Host "Updated build.spec:"
         Get-Content build.spec | Select-String "icon"
 
-    - name: Build with PyInstaller (using patched .spec)
+    - name: Build with PyInstaller
       run: pyinstaller build.spec --noconfirm
 
     - name: Upload executable artifact
@@ -55,7 +56,7 @@ jobs:
         name: DataMatrixChecker-windows
         path: dist/DataMatrixChecker.exe
 
-  # ---------- (rest of the jobs unchanged: lint-and-test, release) ----------
+  # ---------- Lint and Test (unchanged) ----------
   lint-and-test:
     name: Lint and Test
     runs-on: ubuntu-latest
@@ -73,14 +74,15 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install flake8 pytest
+        pip install flake8 pytest PySide6   # also need PySide6 for tests that import it
+        # If you don't have tests that need PySide6, you can remove it
 
     - name: Lint with flake8
       run: |
         flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
         flake8 src --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Test with pytest (if tests exist)
+    - name: Test with pytest
       run: |
         pytest tests/ --doctest-modules --junitxml=junit/test-results.xml --cov=src --cov-report=xml --cov-report=html
       continue-on-error: true
@@ -92,6 +94,7 @@ jobs:
         path: junit/test-results.xml
       if: always()
 
+  # ---------- Release (unchanged) ----------
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
