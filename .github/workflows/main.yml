@@ -21,10 +21,10 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Debug - list files (for diagnosis)
+    - name: Debug - list files
       run: |
-        Write-Host "Repository structure:"
-        Get-ChildItem -Recurse -File | Select-Object -First 30 FullName
+        Write-Host "Repository structure (first 40 files):"
+        Get-ChildItem -Recurse -File | Select-Object -First 40 FullName
 
     - name: Cache pip packages
       uses: actions/cache@v3
@@ -47,14 +47,7 @@ jobs:
     - name: Find main entry script
       id: find_script
       run: |
-        # Look for a script that contains "if __name__ == '__main__'" or the one referenced in build.spec
-        $possibleScripts = @(
-          "main.py",
-          "src/main.py",
-          "app.py",
-          "run.py",
-          "datamatrix_checker.py"
-        )
+        $possibleScripts = @("main.py", "src/main.py", "app.py", "run.py", "datamatrix_checker.py")
         $found = $null
         foreach ($script in $possibleScripts) {
           if (Test-Path $script) {
@@ -62,40 +55,43 @@ jobs:
             break
           }
         }
-        # If not found, search any .py file containing '__main__'
         if (-not $found) {
           $found = Get-ChildItem -Recurse -Filter "*.py" | Select-String -Pattern 'if __name__ == .__main__.' -List | Select-Object -First 1 -ExpandProperty Path
         }
         if ($found) {
           Write-Host "Found entry script: $found"
           echo "script_path=$found" | Out-File -FilePath $env:GITHUB_ENV -Append
+          # Also set the directory of the script for later use
+          $scriptDir = Split-Path $found -Parent
+          echo "script_dir=$scriptDir" | Out-File -FilePath $env:GITHUB_ENV -Append
         } else {
-          Write-Error "No entry script found. Please specify the correct main file in build.spec."
+          Write-Error "No entry script found."
           exit 1
         }
 
-    - name: Patch relative imports in the entry script
+    - name: Patch relative imports in entry script
       run: |
         $script = "$env:script_path"
         Write-Host "Patching relative imports in $script"
         (Get-Content $script) -replace 'from \.(\w+)', 'from $1' | Set-Content $script
-        Write-Host "Patched lines (first 10):"
+        Write-Host "Patched lines:"
         Select-String "from " $script | Select-Object -First 10
 
-    - name: Patch build.spec to use .ico and correct script path
+    - name: Build with PyInstaller (command line, no .spec file)
       run: |
-        $spec = "build.spec"
-        # Replace icon.png with icon.ico
-        (Get-Content $spec) -replace 'icon\.png', 'icon.ico' | Set-Content $spec
-        # Replace any occurrence of 'main.py' or '../main.py' with the discovered script path
-        $scriptRelPath = Resolve-Path -Relative $env:script_path
-        $scriptRelPath = $scriptRelPath -replace '^\.\\', ''   # remove .\ prefix
-        (Get-Content $spec) -replace "['`"]main\.py['`"]", "'$scriptRelPath'" | Set-Content $spec
-        Write-Host "Updated build.spec:"
-        Get-Content $spec | Select-String "icon|SCRIPT"
-
-    - name: Build with PyInstaller
-      run: pyinstaller build.spec --noconfirm
+        # Use the discovered main script
+        $mainScript = "$env:script_path"
+        # Create a temporary spec file that includes all necessary paths and hidden imports
+        pyinstaller --onefile `
+                    --windowed `
+                    --icon=assets/icon.ico `
+                    --add-data "assets;assets" `
+                    --paths "." `
+                    --paths "$env:script_dir" `
+                    --hidden-import "app" `
+                    --collect-all "app" `
+                    --name "DataMatrixChecker" `
+                    $mainScript
 
     - name: Upload executable artifact
       uses: actions/upload-artifact@v4
@@ -125,12 +121,12 @@ jobs:
 
     - name: Lint with flake8
       run: |
-        flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 src --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
     - name: Test with pytest
       run: |
-        pytest tests/ --doctest-modules --junitxml=junit/test-results.xml --cov=src --cov-report=xml --cov-report=html
+        pytest tests/ --doctest-modules --junitxml=junit/test-results.xml --cov=. --cov-report=xml --cov-report=html
       continue-on-error: true
 
     - name: Upload test results
