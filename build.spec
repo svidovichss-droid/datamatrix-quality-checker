@@ -1,20 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-# PyInstaller spec для DataMatrix Quality Checker
-# Сборка: pyinstaller build.spec
-
 import sys
 from pathlib import Path
 
 block_cipher = None
 
-# ===== 1. Добавляем ВСЁ содержимое src =====
 datas = [
-    ('src/*', 'src'),
-    ('assets/*', 'assets'),   # если есть папка assets
+    ('src/*', 'src'),      # копируем всё содержимое src
+    ('assets/*', 'assets') # если есть папка assets
 ]
 
-# ===== 2. Скрытые импорты =====
 hiddenimports = [
     "PySide6.QtCore",
     "PySide6.QtGui",
@@ -28,13 +23,11 @@ hiddenimports = [
     "libdmtx",
 ]
 
-# ===== 3. Исключения =====
 excludes = [
     "tkinter", "test", "unittest",
     "pydoc", "doctest", "matplotlib", "scipy", "pandas",
 ]
 
-# ===== 4. Анализ. Точка входа – src/main.py =====
 a = Analysis(
     ['src/main.py'],
     pathex=[str(Path('.').resolve())],
@@ -65,7 +58,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,               # GUI без консоли
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
