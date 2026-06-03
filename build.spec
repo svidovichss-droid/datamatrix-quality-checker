@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+
 # PyInstaller spec для DataMatrix Quality Checker
 # Сборка: pyinstaller build.spec
 
@@ -7,12 +8,11 @@ from pathlib import Path
 
 block_cipher = None
 
-# Qt + OpenCV плагины, которые нужно включить явно
-datas = [
-    # ничего дополнительного пока; logs/ создаются рантаймом
-]
+# ===== 1. Добавляем ALL файлы из src =====
+# Эта строчка копирует ВСЁ содержимое папки src в корень сборки
+datas = [('src/*', 'src')]
 
-# Qt platform plugins (если PyInstaller не подхватит автоматически)
+# ===== 2. Явно указываем скрытые импорты =====
 hiddenimports = [
     "PySide6.QtCore",
     "PySide6.QtGui",
@@ -26,23 +26,18 @@ hiddenimports = [
     "libdmtx",
 ]
 
-# Уберём лишние модули для уменьшения размера
+# ===== 3. Исключаем ненужные модули =====
 excludes = [
-    "tkinter",
-    "test",
-    "unittest",
-    "pydoc",
-    "doctest",
-    "matplotlib",
-    "scipy",
-    "pandas",
+    "tkinter", "test", "unittest",
+    "pydoc", "doctest", "matplotlib", "scipy", "pandas",
 ]
 
+# ===== 4. Основной анализ =====
 a = Analysis(
-    ['src/main.py'],
+    ['src/main.py'],  # Точкой входа теперь является файл внутри src
     pathex=[str(Path('.').resolve())],
     binaries=[],
-    datas=datas,
+    datas=datas,  # <-- ЭТО ГЛАВНОЕ! Теперь данные добавлены
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
@@ -65,10 +60,10 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,            # сжатие UPX (если установлен)
+    upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,       # GUI-приложение
+    console=False,  # GUI-приложение, окно консоли не показываем
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
