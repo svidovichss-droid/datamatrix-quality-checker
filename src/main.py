@@ -3,39 +3,52 @@
 
 """
 Главный модуль приложения DataMatrix Quality Checker.
+Запускает GUI, настраивает иконку и глобальные параметры.
 """
 
 import sys
 import os
 from pathlib import Path
 
-# Добавляем корневую папку проекта в путь
+# Добавляем корневую папку проекта в путь для импортов
 ROOT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
-# Импортируем утилиту для работы с ресурсами (см. следующий файл)
+from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QIcon          # <-- ИСПРАВЛЕНО: добавлен импорт QIcon
+from PySide6.QtCore import Qt
+
+# Импорт утилиты для корректных путей к ресурсам (работает и в .exe)
 from src.utils.path_helper import resource_path
 
-# Далее идут обычные импорты PySide6, cv2 и т.д.
-from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import Qt
-# ... остальные ваши импорты
+# Предполагается, что у вас есть главное окно в src/ui/main_window.py
+# Если класс называется иначе — замените на свой
+try:
+    from src.ui.main_window import MainWindow
+except ImportError:
+    # Заглушка, если файла нет — выводим сообщение и выходим
+    print("Ошибка: не найден модуль src.ui.main_window")
+    print("Убедитесь, что папка src/ui/main_window.py существует")
+    input("Нажмите Enter для выхода...")
+    sys.exit(1)
 
 def main():
-    """Запуск приложения"""
+    """Точка входа в приложение"""
     app = QApplication(sys.argv)
-    
-    # Пример: загрузка иконки через resource_path
+    app.setApplicationName("DataMatrix Quality Checker")
+    app.setOrganizationName("YourCompany")
+
+    # Загрузка иконки приложения через resource_path
     icon_path = resource_path("assets/icon.png")
     if Path(icon_path).exists():
         app.setWindowIcon(QIcon(icon_path))
-    
-    # Создаём и показываем главное окно (ваш класс из src/ui/main_window.py)
-    # Предположим, он называется MainWindow
-    from src.ui.main_window import MainWindow
+    else:
+        print(f"Предупреждение: иконка не найдена по пути {icon_path}")
+
+    # Создание и показ главного окна
     window = MainWindow()
     window.show()
-    
+
     sys.exit(app.exec())
 
 if __name__ == "__main__":
