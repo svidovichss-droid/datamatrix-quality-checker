@@ -10,15 +10,16 @@ import sys
 import os
 from pathlib import Path
 
-# Добавляем текущую папку в sys.path, чтобы импортировать src
+# Добавляем текущую папку в sys.path
 sys.path.insert(0, str(Path(__file__).parent))
 
 try:
     from src.main import main
 except ImportError as e:
-    print(f"Ошибка импорта src.main: {e}")
-    print("Убедитесь, что папка src существует и содержит main.py")
-    input("Нажмите Enter для выхода...")
+    # Не можем показать QMessageBox, так как Qt ещё не инициализирован.
+    # В GUI-режиме просто завершаем без вывода, так как консоли нет.
+    # Для отладки можно записать в файл, но обычно это не нужно.
+    # Пользователь просто увидит, что приложение не запустилось.
     sys.exit(1)
 
 if __name__ == "__main__":
