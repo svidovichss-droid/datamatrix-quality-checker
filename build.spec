@@ -1,4 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
+# Build spec for DataMatrix Quality Checker.
+#
+# Layout expected in repo root:
+#   build.spec
+#   hooks/hook-pylibdmtx.py
+#   runtime_hook_pylibdmtx.py
+#   assets/
+#   src/
 
 import sys
 from pathlib import Path
@@ -6,19 +14,15 @@ from PyInstaller.building.api import Tree
 
 block_cipher = None
 
-# ===== 1. Данные (папки src и assets) =====
+# ===== 1. Data: src/ tree + assets/ =====
 datas = [('assets/*', 'assets')] + Tree('src', prefix='src')
 
-# ===== 2. Бинарные файлы (DLL) =====
-# Указываем явный путь к скопированной DLL
-dll_path = Path('dll') / 'libdmtx-64.dll'
-if dll_path.exists():
-    binaries = [(str(dll_path), 'pylibdmtx')]   # копируется в папку pylibdmtx внутри _MEI
-else:
-    print("ВНИМАНИЕ: libdmtx-64.dll не найдена в папке dll/")
-    binaries = []
+# ===== 2. Binaries: native DLL =====
+# hook-pylibdmtx.py takes care of bundling libdmtx-64.dll from the installed
+# pylibdmtx wheel, so we don't need to ship it manually.
+binaries = []
 
-# ===== 3. Скрытые импорты =====
+# ===== 3. Hidden imports =====
 hiddenimports = [
     "PySide6.QtCore",
     "PySide6.QtGui",
@@ -29,26 +33,34 @@ hiddenimports = [
     "PIL.Image",
     "pylibdmtx.pylibdmtx",
     "pylibdmtx",
+    "pylibdmtx.wrapper",
+    "pylibdmtx.dmtx_library",
     "libdmtx",
     "ctypes",
     "ctypes.util",
 ]
 
 excludes = [
-    "tkinter", "test", "unittest",
-    "pydoc", "doctest", "matplotlib", "scipy", "pandas",
+    "tkinter",
+    "test",
+    "unittest",
+    "pydoc",
+    "doctest",
+    "matplotlib",
+    "scipy",
+    "pandas",
 ]
 
-# ===== 4. Анализ =====
+# ===== 4. Analysis =====
 a = Analysis(
     ['src/main.py'],
     pathex=[str(Path('.').resolve())],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
-    hookspath=[],
+    hookspath=['hooks'],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['runtime_hook_pylibdmtx.py'],
     excludes=excludes,
     noarchive=False,
     optimize=0,
@@ -70,7 +82,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # Можно временно поставить True для отладки
+    console=False,        # switch to True temporarily if you want a console for debugging
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
