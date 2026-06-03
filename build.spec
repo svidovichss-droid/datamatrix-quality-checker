@@ -8,11 +8,13 @@ from pathlib import Path
 
 block_cipher = None
 
-# ===== 1. Добавляем ALL файлы из src =====
-# Эта строчка копирует ВСЁ содержимое папки src в корень сборки
-datas = [('src/*', 'src')]
+# ===== 1. Добавляем ВСЁ содержимое src =====
+datas = [
+    ('src/*', 'src'),
+    ('assets/*', 'assets'),   # если есть папка assets
+]
 
-# ===== 2. Явно указываем скрытые импорты =====
+# ===== 2. Скрытые импорты =====
 hiddenimports = [
     "PySide6.QtCore",
     "PySide6.QtGui",
@@ -26,18 +28,18 @@ hiddenimports = [
     "libdmtx",
 ]
 
-# ===== 3. Исключаем ненужные модули =====
+# ===== 3. Исключения =====
 excludes = [
     "tkinter", "test", "unittest",
     "pydoc", "doctest", "matplotlib", "scipy", "pandas",
 ]
 
-# ===== 4. Основной анализ =====
+# ===== 4. Анализ. Точка входа – src/main.py =====
 a = Analysis(
-    ['src/main.py'],  # Точкой входа теперь является файл внутри src
+    ['src/main.py'],
     pathex=[str(Path('.').resolve())],
     binaries=[],
-    datas=datas,  # <-- ЭТО ГЛАВНОЕ! Теперь данные добавлены
+    datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
@@ -63,7 +65,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # GUI-приложение, окно консоли не показываем
+    console=False,               # GUI без консоли
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
