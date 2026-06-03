@@ -2,13 +2,11 @@
 
 import sys
 from pathlib import Path
+from PyInstaller.building.api import Tree
 
 block_cipher = None
 
-datas = [
-    ('src/*', 'src'),      # копируем всё содержимое src
-    ('assets/*', 'assets') # если есть папка assets
-]
+datas = [('assets/*', 'assets')] + Tree('src', prefix='src')
 
 hiddenimports = [
     "PySide6.QtCore",
