@@ -1,40 +1,20 @@
 @echo off
-REM build.bat — локальная сборка .exe под Windows
-REM Требует Python 3.10+ в PATH.
+echo ========================================
+echo Building DataMatrix Quality Checker
+echo ========================================
 
-setlocal enabledelayedexpansion
-cd /d "%~dp0\.."
+REM Удаляем старые сборки
+if exist "build" rmdir /s /q build
+if exist "dist" rmdir /s /q dist
 
-echo === [1/4] Создаю виртуальное окружение ===
-if not exist ".venv" (
-    python -m venv .venv
-) else (
-    echo .venv уже существует
-)
-
-call .venv\Scripts\activate.bat
-
-echo === [2/4] Обновляю pip и ставлю зависимости ===
-python -m pip install --upgrade pip
+REM Устанавливаем зависимости
 pip install -r requirements.txt
-pip install pyinstaller>=6.0
 
-echo === [3/4] Чищу предыдущую сборку ===
-if exist build rmdir /s /q build
-if exist dist rmdir /s /q dist
+REM Запускаем PyInstaller с нашим spec-файлом
+pyinstaller build.spec --clean --noconfirm
 
-echo === [4/4] Собираю DataMatrixChecker.exe ===
-pyinstaller build.spec --noconfirm
-
-if exist "dist\DataMatrixChecker.exe" (
-    echo.
-    echo === ГОТОВО ===
-    echo Файл: dist\DataMatrixChecker.exe
-    dir dist\DataMatrixChecker.exe
-) else (
-    echo.
-    echo === ОШИБКА СБОРКИ ===
-    exit /b 1
-)
-
-endlocal
+echo.
+echo ========================================
+echo Build finished. Check 'dist' folder.
+echo ========================================
+pause
