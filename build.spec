@@ -6,8 +6,11 @@ from PyInstaller.building.api import Tree
 
 block_cipher = None
 
+# ===== Рекурсивно добавляем всю папку src (включая все подпапки) =====
+# Tree('src', prefix='src') рекурсивно копирует всё из src в src внутри сборки
 datas = [('assets/*', 'assets')] + Tree('src', prefix='src')
 
+# ===== Скрытые импорты =====
 hiddenimports = [
     "PySide6.QtCore",
     "PySide6.QtGui",
@@ -21,6 +24,7 @@ hiddenimports = [
     "libdmtx",
 ]
 
+# ===== Исключения =====
 excludes = [
     "tkinter", "test", "unittest",
     "pydoc", "doctest", "matplotlib", "scipy", "pandas",
@@ -56,7 +60,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=False,          # без консоли
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
