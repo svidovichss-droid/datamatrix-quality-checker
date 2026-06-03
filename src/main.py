@@ -1,69 +1,38 @@
 #!/usr/bin/env python3
-"""Точка входа для запуска из корня проекта: python main.py"""
+# -*- coding: utf-8 -*-
+
+"""
+Главный модуль приложения DataMatrix Quality Checker.
+"""
 
 import sys
 import os
 from pathlib import Path
 
-# ===== 1. Настройка путей =====
-# Корень проекта — папка, где находится этот файл
-PROJECT_ROOT = Path(__file__).resolve().parent
+# Добавляем корневую папку проекта в путь
+ROOT_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT_DIR))
 
-# Добавляем корень в sys.path, если его там нет
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# Импортируем утилиту для работы с ресурсами (см. следующий файл)
+from src.utils.path_helper import resource_path
 
-# ===== 2. Проверка структуры src =====
-src_path = PROJECT_ROOT / "src"
-init_file = src_path / "__init__.py"
-
-if not src_path.exists():
-    raise RuntimeError(
-        f"Папка 'src' не найдена в {PROJECT_ROOT}.\n"
-        f"Убедитесь, что файл main.py лежит в одной папке с src/."
-    )
-
-if not init_file.exists():
-    # Автоматически создаём __init__.py, чтобы src считался пакетом
-    init_file.touch()
-    print(f"[INFO] Создан недостающий файл: {init_file}")
-
-# ===== 3. Импорт модулей =====
-try:
-    from src.app import MainWindow
-except ImportError as e:
-    print(f"[ERROR] Не удалось импортировать src.app: {e}")
-    print(f"[DEBUG] sys.path = {sys.path}")
-    print(f"[DEBUG] Содержимое папки src: {list(src_path.iterdir())}")
-    raise
-
+# Далее идут обычные импорты PySide6, cv2 и т.д.
 from PySide6.QtWidgets import QApplication
-import logging
+from PySide6.QtCore import Qt
+# ... остальные ваши импорты
 
-# ===== 4. Логирование =====
-def setup_logging():
-    log = logging.getLogger("dmqc")
-    log.setLevel(logging.INFO)
-    if not log.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter(
-            "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-        ))
-        log.addHandler(handler)
-    return log
-
-# ===== 5. Запуск приложения =====
 def main():
-    setup_logging()
-    
-    # High-DPI для Qt
-    os.environ.setdefault("QT_AUTO_SCREEN_SCALE_FACTOR", "1")
-    os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
-    
+    """Запуск приложения"""
     app = QApplication(sys.argv)
-    app.setApplicationName("DataMatrix Quality Checker")
-    app.setOrganizationName("DMQC")
     
+    # Пример: загрузка иконки через resource_path
+    icon_path = resource_path("assets/icon.png")
+    if Path(icon_path).exists():
+        app.setWindowIcon(QIcon(icon_path))
+    
+    # Создаём и показываем главное окно (ваш класс из src/ui/main_window.py)
+    # Предположим, он называется MainWindow
+    from src.ui.main_window import MainWindow
     window = MainWindow()
     window.show()
     
