@@ -15,7 +15,7 @@ from PyInstaller.building.api import Tree
 block_cipher = None
 
 # ===== 1. Data: src/ tree + assets/ =====
-datas = [('assets/*', 'assets')] + Tree('src', prefix='src')
+datas = [('assets', 'assets')] + Tree('src', prefix='src')
 
 # ===== 2. Binaries: native DLL =====
 # hook-pylibdmtx.py takes care of bundling libdmtx-64.dll from the installed
@@ -53,7 +53,7 @@ excludes = [
 
 # ===== 4. Analysis =====
 a = Analysis(
-    ['src/main.py'],
+    ['main.py'],
     pathex=[str(Path('.').resolve())],
     binaries=binaries,
     datas=datas,
