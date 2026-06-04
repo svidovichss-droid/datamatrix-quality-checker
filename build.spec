@@ -1,44 +1,23 @@
 # -*- mode: python ; coding: utf-8 -*-
-# Build spec for DataMatrix Quality Checker.
-#
-# Layout expected in repo root:
-#   build.spec
-#   hooks/hook-pylibdmtx.py
-#   runtime_hook_pylibdmtx.py
-#   assets/
-#   src/
+# Build spec for DataMatrix Quality Checker
+# CRITICAL FIX: Use Conda environment for proper libdmtx DLL bundling
+# See: scripts/build_conda.bat
 
 import sys
+import os
 from pathlib import Path
 from PyInstaller.building.api import Tree
-import site
 
 block_cipher = None
 
 # ===== 1. Data: src/ tree + assets/ =====
 datas = [('assets', 'assets')] + Tree('src', prefix='src')
 
-# ===== 2. Binaries: native DLL =====
-# Explicitly include libdmtx DLL from pylibdmtx package
+# ===== 2. Binaries: Use conda-provided DLLs =====
 binaries = []
 
-# Find pylibdmtx installation path and add libdmtx-64.dll
-try:
-    import pylibdmtx
-    pylibdmtx_path = Path(pylibdmtx.__file__).parent
-    libdmtx_dll = pylibdmtx_path / 'libdmtx-64.dll'
-    
-    if libdmtx_dll.exists():
-        # Add DLL to binaries: (source, destination folder)
-        binaries.append((str(libdmtx_dll), 'pylibdmtx'))
-    else:
-        # Try alternative locations
-        for pattern in ['libdmtx*.dll', 'dmtx*.dll']:
-            dlls = list(pylibdmtx_path.glob(pattern))
-            for dll in dlls:
-                binaries.append((str(dll), 'pylibdmtx'))
-except ImportError:
-    pass
+# In conda environment, DLLs are automatically found and bundled
+# No manual DLL collection needed - conda handles library dependencies
 
 # ===== 3. Hidden imports =====
 hiddenimports = [
@@ -53,7 +32,6 @@ hiddenimports = [
     "pylibdmtx",
     "pylibdmtx.wrapper",
     "pylibdmtx.dmtx_library",
-    "libdmtx",
     "ctypes",
     "ctypes.util",
 ]
@@ -100,7 +78,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,        # switch to True temporarily if you want a console for debugging
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
