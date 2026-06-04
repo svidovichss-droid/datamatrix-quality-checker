@@ -11,6 +11,7 @@
 import sys
 from pathlib import Path
 from PyInstaller.building.api import Tree
+import site
 
 block_cipher = None
 
@@ -18,9 +19,26 @@ block_cipher = None
 datas = [('assets', 'assets')] + Tree('src', prefix='src')
 
 # ===== 2. Binaries: native DLL =====
-# hook-pylibdmtx.py takes care of bundling libdmtx-64.dll from the installed
-# pylibdmtx wheel, so we don't need to ship it manually.
+# Explicitly include libdmtx DLL from pylibdmtx package
 binaries = []
+
+# Find pylibdmtx installation path and add libdmtx-64.dll
+try:
+    import pylibdmtx
+    pylibdmtx_path = Path(pylibdmtx.__file__).parent
+    libdmtx_dll = pylibdmtx_path / 'libdmtx-64.dll'
+    
+    if libdmtx_dll.exists():
+        # Add DLL to binaries: (source, destination folder)
+        binaries.append((str(libdmtx_dll), 'pylibdmtx'))
+    else:
+        # Try alternative locations
+        for pattern in ['libdmtx*.dll', 'dmtx*.dll']:
+            dlls = list(pylibdmtx_path.glob(pattern))
+            for dll in dlls:
+                binaries.append((str(dll), 'pylibdmtx'))
+except ImportError:
+    pass
 
 # ===== 3. Hidden imports =====
 hiddenimports = [

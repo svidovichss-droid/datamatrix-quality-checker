@@ -13,14 +13,20 @@ from pathlib import Path
 
 if getattr(sys, 'frozen', False):
     base = Path(sys._MEIPASS)
-    # _MEIPASS may put the DLL at the root (thanks to hook-pylibdmtx.py)
-    # or inside pylibdmtx/ subfolder; register both just in case.
-    for sub in ('.', 'pylibdmtx'):
-        d = base / sub
-        if d.exists():
-            os.environ['PATH'] = f'{d}{os.pathsep}{os.environ.get("PATH", "")}'
+    # Register all possible DLL directories
+    dll_dirs = [
+        base,  # Root of bundle
+        base / 'pylibdmtx',  # pylibdmtx subfolder
+        base / 'cv2',  # OpenCV subfolder
+    ]
+    
+    for dll_dir in dll_dirs:
+        if dll_dir.exists():
+            # Add to PATH
+            os.environ['PATH'] = f'{dll_dir}{os.pathsep}{os.environ.get("PATH", "")}'
+            # Register DLL search path (Windows 10+)
             if hasattr(os, 'add_dll_directory'):
                 try:
-                    os.add_dll_directory(str(d))
-                except OSError:
-                    pass
+                    os.add_dll_directory(str(dll_dir))
+                except OSError as e:
+                    pass  # Directory already registered
